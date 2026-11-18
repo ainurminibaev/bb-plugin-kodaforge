@@ -65,6 +65,8 @@
     "hooks",
     "README.md",
     "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "licenses",
     "assets",
     "marketplace.json",
     "CHANGELOG.md"
