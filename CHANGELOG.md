@@ -3,7 +3,7 @@
 All notable changes to KodaForge. Versions follow [semver](https://semver.org); BB installs
 them from the `vX.Y.Z` tags.
 
-## [Unreleased]
+## [own 0.7.100] - 2026-11-24
 
 ### Added
 - **File previews.** Images, video, audio, PDF, Word (.docx), spreadsheets (.xlsx, .xls, .ods)
