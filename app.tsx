@@ -13,6 +13,7 @@ import type { rpcContract, Scope, WorkspaceOption } from "./server";
 import { groupWorkspaces } from "@/lib/workspaces";
 import { Workbench } from "@/components/Workbench";
 import { KodaIcon } from "@/components/KodaIcon";
+import { HeaderSlot, useHeaderSlot } from "@/components/HeaderSlot";
 import { Icon } from "@/components/ui/icon";
 import { closeTab, MAX_OPEN, openTab, parseSaved, tabSet } from "@/lib/open-workspaces";
 
@@ -63,6 +64,8 @@ function IdePage({ subPath }: PluginNavPanelProps) {
   // After the last tab is closed the page stays empty; without this the first
   // workspace in the list reopened by itself, as if the page had reloaded.
   const [closedAll, setClosedAll] = useState(false);
+  const { values: pluginSettings, isLoading: settingsLoading } = useSettings();
+  const [page, headerSlot] = useHeaderSlot(pluginSettings?.compactHeader === true);
   const routed = parseScope(subPath);
   useEffect(() => {
     if (routed !== null) setClosedAll(false);
@@ -81,7 +84,6 @@ function IdePage({ subPath }: PluginNavPanelProps) {
   const [open, setOpen] = useState<string[]>(() => parseSaved(localStorage.getItem(OPEN_KEY)));
   const byKey = useMemo(() => new Map((workspaces ?? []).map((w) => [`${w.ref.kind}/${w.ref.id}`, w])), [workspaces]);
   // With separate tabs, only the active workspace's set shows.
-  const { values: pluginSettings, isLoading: settingsLoading } = useSettings();
   const separate = pluginSettings?.separateTabs === true;
   // A workspace opened by link (a thread, or an environment the picker does not
   // list) has no entry above: ask the server for its project and machine.
@@ -183,22 +185,22 @@ function IdePage({ subPath }: PluginNavPanelProps) {
   const mounted = open.filter((key) => visible.includes(key) || recent.current.includes(key) || dirtySnapshot[key]);
   const shown = mounted.includes(active) ? mounted : [...mounted, active];
   return (
-    <div className="h-full min-h-0">
+    <div ref={page} className="h-full min-h-0">
       {shown.map((key) => (
-        <WorkspaceView key={key} workspaceKey={key} active={key === active} header={tabs} closeFilesTick={closeFiles?.key === key ? closeFiles.tick : 0} />
+        <WorkspaceView key={key} workspaceKey={key} active={key === active} header={tabs} headerSlot={headerSlot} closeFilesTick={closeFiles?.key === key ? closeFiles.tick : 0} />
       ))}
     </div>
   );
 }
 
-function WorkspaceView({ workspaceKey, active, header, closeFilesTick }: {
-  workspaceKey: string; active: boolean; header: React.ReactNode; closeFilesTick: number;
+function WorkspaceView({ workspaceKey, active, header, headerSlot, closeFilesTick }: {
+  workspaceKey: string; active: boolean; header: React.ReactNode; headerSlot: HTMLElement | null; closeFilesTick: number;
 }) {
   // Workbench reloads Monaco and its buffers whenever the scope identity changes.
   const scope = useMemo(() => parseScope(workspaceKey)!, [workspaceKey]);
   return (
     <div className={active ? "h-full min-h-0" : "hidden"}>
-      <Workbench scope={scope} active={active} header={header} closeFilesTick={closeFilesTick}
+      <Workbench scope={scope} active={active} header={header} headerSlot={headerSlot} closeFilesTick={closeFilesTick}
         onDirtyChange={(value) => setWorkspaceDirty(workspaceKey, value)} />
     </div>
   );
@@ -253,12 +255,12 @@ function WorkspaceTabs({
       window.removeEventListener("blur", blur);
     };
   }, [context]);
-  const [menu, setMenu] = useState(false);
+  const [menu, setMenu] = useState<{ left: number; top: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!menu) return;
+    if (menu === null) return;
     const away = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenu(false);
+      if (!menuRef.current?.contains(event.target as Node)) setMenu(null);
     };
     window.addEventListener("mousedown", away);
     return () => window.removeEventListener("mousedown", away);
@@ -282,7 +284,7 @@ function WorkspaceTabs({
               }`}
               onContextMenu={(event) => {
                 event.preventDefault();
-                setMenu(false);
+                setMenu(null);
                 setContext({ key, x: event.clientX, y: event.clientY });
               }}
               onClick={() => onSelect(key)}
@@ -326,14 +328,18 @@ function WorkspaceTabs({
           type="button"
           aria-label="Open another workspace"
           title="Open another workspace"
-          aria-expanded={menu}
+          aria-expanded={menu !== null}
           className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => setMenu((value) => !value)}
+          onClick={(event) => {
+            // Fixed, and kept on screen: in the title bar the button can be far right.
+            const box = event.currentTarget.getBoundingClientRect();
+            setMenu(menu === null ? { left: Math.max(8, Math.min(box.left, window.innerWidth - 296)), top: box.bottom + 4 } : null);
+          }}
         >
           <Icon name="Plus" className="size-4" />
         </button>
         {menu ? (
-          <div role="menu" className="absolute left-0 top-8 z-50 max-h-96 w-72 overflow-y-auto rounded-lg border border-border bg-popover py-1 text-[13px] text-popover-foreground shadow-[0_12px_32px_rgba(0,0,0,0.28)]">
+          <div role="menu" style={menu} className="fixed z-50 max-h-96 w-72 overflow-y-auto rounded-lg border border-border bg-popover py-1 text-[13px] text-popover-foreground shadow-[0_12px_32px_rgba(0,0,0,0.28)]">
             {groups.length === 0 ? <p className="px-3 py-2 text-xs text-muted-foreground">No workspaces yet.</p> : null}
             {groups.map((group) => (
               <div key={group.projectId} className="py-1">
@@ -351,7 +357,7 @@ function WorkspaceTabs({
                       role="menuitem"
                       className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
-                        setMenu(false);
+                        setMenu(null);
                         onSelect(key);
                       }}
                     >
@@ -387,6 +393,7 @@ export default definePluginApp((app) => {
     icon: "KodaBear",
     path: PANEL_PATH,
     component: IdePage,
+    headerContent: HeaderSlot,
   });
   app.slots.experimental_tab({
     id: "forge",

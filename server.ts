@@ -258,6 +258,12 @@ export default async function plugin(bb: BbPluginApi) {
         "Show only the open project's workspaces as tabs; a thread has its own. Other projects' tabs, and their unsaved files, stay as they are and come back with their project.",
       default: false,
     },
+    compactHeader: {
+      type: "boolean",
+      label: "Workspace tabs in BB's title bar",
+      description: "One bar instead of two: the workspace tabs and panel switches move into BB's title bar. A narrow window keeps the separate bar.",
+      default: false,
+    },
     formatOnSave: {
       type: "boolean",
       label: "Format on save",
