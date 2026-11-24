@@ -8,6 +8,8 @@ import type { Documents } from "./use-documents";
 import type { Monaco } from "./monaco";
 import { DiffView } from "./DiffView";
 import { PreviewView } from "./PreviewView";
+import { TextPreview } from "./TextPreview";
+import { textPreview } from "@/lib/text-preview";
 import { parseDiffKey } from "@/lib/diff-key";
 import { FileIcon } from "./FileIcon";
 import { useHues } from "./colors";
@@ -72,6 +74,8 @@ export function EditorGroup({
   groupCount,
   renderView,
   onDropFile,
+  showsSource,
+  onShowSource,
 }: {
   monaco: Monaco;
   docs: Documents;
@@ -97,6 +101,9 @@ export function EditorGroup({
   renderView?(key: string): React.ReactNode;
   /** A file dragged in from the Explorer: open it in this group, or beside it. */
   onDropFile?(path: string, where: "here" | "side"): void;
+  /** Whether this group shows the file's source rather than its preview. */
+  showsSource(path: string): boolean;
+  onShowSource(path: string, source: boolean): void;
 }) {
   const hues = useHues();
   const host = useRef<HTMLDivElement>(null);
@@ -165,13 +172,15 @@ export function EditorGroup({
   const view = active !== null && active.startsWith("view:") ? (renderView?.(active) ?? null) : null;
   const meta = active === null ? null : docs.meta(active);
   const preview = active === null ? null : docs.preview(active);
+  const rendered = active === null || model === null ? null : textPreview(active);
+  const previewing = rendered !== null && !showsSource(active!);
   useEffect(() => {
     const instance = editor.current;
     if (instance === null) return;
     if (instance.getModel() !== model) instance.setModel(model);
     instance.updateOptions({ readOnly: meta?.readOnly ?? false });
-    if (focused && model !== null) instance.focus();
-  }, [model, meta?.readOnly, focused]);
+    if (focused && model !== null && !previewing) instance.focus();
+  }, [model, meta?.readOnly, focused, previewing]);
 
   const tabName = (path: string) => {
     if (path === AGENTS_TAB) return "Agent Network";
@@ -329,6 +338,17 @@ export function EditorGroup({
           );
         })}
         <span className="min-w-6 flex-1" aria-hidden />
+        {rendered !== null ? (
+          <button
+            type="button"
+            title={previewing ? "Show the source" : "Show the preview"}
+            className="sticky right-0 flex shrink-0 items-center gap-1 border-l border-border bg-background px-3 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => onShowSource(active!, previewing)}
+          >
+            <Icon name={previewing ? "Code" : "Eye"} className="size-3.5" />
+            {previewing ? "Source" : "Preview"}
+          </button>
+        ) : null}
       </div>
       {menu !== null ? (
         <TabMenu
@@ -381,11 +401,16 @@ export function EditorGroup({
         onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setZone(null)}
         onDrop={(event) => dropTab(event, { zone: zoneAt(event) })}
       >
-        <div ref={host} className={`absolute inset-0 ${diff === null && view === null && preview === null ? "" : "invisible"}`} />
+        <div ref={host} className={`absolute inset-0 ${diff === null && view === null && preview === null && !previewing ? "" : "invisible"}`} />
         {view !== null ? <div className="absolute inset-0 bg-background">{view}</div> : null}
         {active !== null && preview !== null ? (
           <div className="absolute inset-0 bg-background">
             <PreviewView key={active} scope={scope} path={active} revision={preview} assetsUrl={assetsUrl} />
+          </div>
+        ) : null}
+        {previewing ? (
+          <div className="absolute inset-0">
+            <TextPreview key={active!} kind={rendered!} content={model!.getValue()} name={active!} focused={focused} />
           </div>
         ) : null}
         {zone !== null ? (
