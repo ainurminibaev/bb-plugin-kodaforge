@@ -14,6 +14,7 @@ the author; when a change is released upstream, its branch is no longer needed h
 | CSV and TSV previews (needs the two above) | `feat/csv-preview` |
 | Explorer: Open in Terminal, menu items from other plugins | `feat/explorer-actions` |
 | Separate workspace tabs per project (setting) | `feat/separate-workspace-tabs` |
+| Workspace tabs in the title bar (setting) | `feat/compact-header` |
 
 Releases are tagged `own/vX.Y.Z`, apart from the author's `vX.Y.Z`. The patch number is
 `(author's patch + 1) * 100 + build`, so `0.7.100` is the author's `0.7.0` with these changes
