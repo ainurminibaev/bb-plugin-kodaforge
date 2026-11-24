@@ -4,9 +4,10 @@ import { isVirtualTab } from "@/lib/editor-state";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { experimental_useCodeTheme, useRpc } from "@get-bb/plugin-sdk/app";
-import type { rpcContract, Scope } from "../server";
+import type { ResolvedScope, rpcContract, Scope } from "../server";
 import { ancestorsOf, basename, buildTree, dirname, visibleRows, type TreeNode } from "@/lib/tree";
 import { decorateTree, type Decoration } from "@/lib/git-status";
+import { absolutePath, addedItems, type ExplorerMenuItem } from "@/lib/explorer-menu";
 import { Icon } from "@/components/ui/icon";
 import { InputBox } from "./Palette";
 import { FileIcon } from "./FileIcon";
@@ -37,15 +38,18 @@ type Pending =
 
 export function Explorer({
   scope,
+  workspace,
   activePath,
   changeTick,
   onOpen,
   onCreated,
   onRenamed,
   onDeleted,
+  onOpenTerminal,
   log,
 }: {
   scope: Scope;
+  workspace: ResolvedScope;
   activePath: string | null;
   /** Bumped by the workbench whenever the watcher reports a change. */
   changeTick: number;
@@ -54,6 +58,8 @@ export function Explorer({
   onCreated(path: string): void;
   onRenamed(from: string, to: string): void;
   onDeleted(path: string): void;
+  /** Open a terminal in this folder (absolute path on the workspace's machine). */
+  onOpenTerminal(folder: string): void;
   log(line: string): void;
 }) {
   const rpc = useRpc<typeof rpcContract>();
@@ -64,7 +70,19 @@ export function Explorer({
   const [decorations, setDecorations] = useState<Map<string, Decoration>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; node: TreeNode | null } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; node: TreeNode | null; added: ExplorerMenuItem[] } | null>(null);
+  const openMenu = (event: React.MouseEvent, node: TreeNode | null) => {
+    event.preventDefault();
+    const added = addedItems(window, {
+      hostId: workspace.hostId,
+      path: absolutePath(workspace.root, node?.path ?? ""),
+      kind: node?.kind === "file" ? "file" : "directory",
+    }, (label, error) => {
+      log(`${label} failed: ${(error as Error)?.message ?? String(error)}`);
+      window.alert(`${label} failed: ${(error as Error)?.message ?? String(error)}`);
+    });
+    setMenu({ x: event.clientX, y: event.clientY, node, added });
+  };
   const [pending, setPending] = useState<Pending | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
@@ -232,9 +250,7 @@ export function Explorer({
         className={`relative min-h-0 flex-1 overflow-y-auto outline-none ${dropTarget === "" ? "bg-primary/10" : ""}`}
         onKeyDown={onKeyDown}
         onContextMenu={(event) => {
-          if (event.target !== event.currentTarget) return;
-          event.preventDefault();
-          setMenu({ x: event.clientX, y: event.clientY, node: null });
+          if (event.target === event.currentTarget) openMenu(event, null);
         }}
         onDragOver={(event) => {
           if (event.target === event.currentTarget) {
@@ -272,9 +288,8 @@ export function Explorer({
                   else onOpen(node.path, event.altKey || event.metaKey);
                 }}
                 onContextMenu={(event) => {
-                  event.preventDefault();
                   setSelected(node.path);
-                  setMenu({ x: event.clientX, y: event.clientY, node });
+                  openMenu(event, node);
                 }}
                 onDragStart={(event) => {
                   event.dataTransfer.setData("application/x-ide-path", node.path);
@@ -332,6 +347,8 @@ export function Explorer({
           items={[
             { label: "New File…", run: () => setPending({ kind: "newFile", parent: parentFor(menu.node) }) },
             { label: "New Folder…", run: () => setPending({ kind: "newFolder", parent: parentFor(menu.node) }) },
+            { label: "Open in Terminal", run: () => onOpenTerminal(absolutePath(workspace.root, parentFor(menu.node))) },
+            ...menu.added,
             ...(menu.node === null
               ? []
               : [

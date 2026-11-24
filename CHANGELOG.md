@@ -14,6 +14,11 @@ them from the `vX.Y.Z` tags.
   the tab strip and a palette command. Source and preview can sit side by side in two groups,
   and edits show in the preview as you type. Going to a line, a search hit or a new file
   opens the source.
+- **Explorer: Open in Terminal.** Right-click a folder, a file (its folder) or the empty area
+  to open a terminal there, on the workspace's machine. It is found again after a restart.
+- **Explorer menu items from other plugins.** A `kodaforge:explorer-menu` event on `window`
+  carries the machine, the absolute path and the kind of the entry; listeners push
+  `{ label, run }` into `detail.items`, for example to open a system file manager.
 
 ## [0.7.0] - 2026-11-04
 
