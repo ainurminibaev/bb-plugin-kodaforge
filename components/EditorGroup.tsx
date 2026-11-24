@@ -410,7 +410,7 @@ export function EditorGroup({
         ) : null}
         {previewing ? (
           <div className="absolute inset-0">
-            <TextPreview key={active!} kind={rendered!} content={model!.getValue()} name={active!} focused={focused} />
+            <TextPreview key={active!} kind={rendered!} content={model!.getValue()} name={active!} focused={focused} assetsUrl={assetsUrl} />
           </div>
         ) : null}
         {zone !== null ? (

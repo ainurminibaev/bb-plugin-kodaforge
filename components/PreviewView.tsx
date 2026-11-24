@@ -48,7 +48,7 @@ export function PreviewView({ scope, path, revision, assetsUrl }: {
   }
   if (kind === "pdf") return <PdfPreview url={url} name={path} onError={setError} />;
   const viewer = kind === null ? undefined : VIEWERS[kind];
-  if (viewer !== undefined && assetsUrl !== null) return <DocumentPreview url={url} name={path} viewer={viewer} assetsUrl={assetsUrl} onError={setError} />;
+  if (viewer !== undefined && assetsUrl !== null) return <DocumentPreview source={url} load={(signal) => loadBytes(url, signal)} name={path} viewer={viewer} assetsUrl={assetsUrl} onError={setError} />;
   return <Message text="This file is not text and has no preview." download={url} />;
 }
 
@@ -127,7 +127,15 @@ function viewerScript(url: string): Promise<string> {
   return script;
 }
 
-function DocumentPreview({ url, name, viewer, assetsUrl, onError }: { url: string; name: string; viewer: string; assetsUrl: string; onError(message: string): void }) {
+export function DocumentPreview({ source, load, name, viewer, assetsUrl, onError }: {
+  /** What `load` reads: the document is shown again when it changes. */
+  source: string;
+  load(signal: AbortSignal): Promise<ArrayBuffer>;
+  name: string;
+  viewer: string;
+  assetsUrl: string;
+  onError(message: string): void;
+}) {
   const frame = useRef<HTMLIFrameElement>(null);
   const bytes = useRef<ArrayBuffer | null>(null);
   const [page, setPage] = useState<string | null>(null);
@@ -136,7 +144,7 @@ function DocumentPreview({ url, name, viewer, assetsUrl, onError }: { url: strin
     const controller = new AbortController();
     setRendered(false);
     setPage(null);
-    Promise.all([viewerScript(`${assetsUrl}/viewers/${viewer}.js`), loadBytes(url, controller.signal)]).then(
+    Promise.all([viewerScript(`${assetsUrl}/viewers/${viewer}.js`), load(controller.signal)]).then(
       ([script, data]) => {
         if (controller.signal.aborted) return;
         bytes.current = data;
@@ -150,7 +158,7 @@ function DocumentPreview({ url, name, viewer, assetsUrl, onError }: { url: strin
     );
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, viewer, assetsUrl]);
+  }, [source, viewer, assetsUrl]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.source === null || event.source !== frame.current?.contentWindow) return;
