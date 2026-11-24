@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { keepOpenTabs, sourceKey, textPreview } from "./text-preview.js";
+import { keepOpenTabs, sourceKey, textPreview, utf8WithMark } from "./text-preview.js";
 
 describe("textPreview", () => {
+  it("covers tables as text", () => {
+    expect(textPreview("data/Отчёт.CSV")).toBe("csv");
+    expect(textPreview("a.tsv")).toBe("csv");
+    expect([...new Uint8Array(utf8WithMark("a")).slice(0, 4)]).toEqual([0xef, 0xbb, 0xbf, 0x61]);
+    expect(utf8WithMark("\uFEFFa")).toHaveProperty("byteLength", 4);
+  });
   it("covers Markdown and SVG, whatever the case or folder", () => {
     expect(textPreview("README.md")).toBe("markdown");
     expect(textPreview("docs/Очень длинное имя.MD")).toBe("markdown");

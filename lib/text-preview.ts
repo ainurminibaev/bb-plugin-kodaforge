@@ -1,9 +1,15 @@
 /** Text files that open as a preview, with their source one click away. */
-export type TextPreview = "markdown" | "svg";
+export type TextPreview = "markdown" | "svg" | "csv";
 
 export function textPreview(path: string): TextPreview | null {
   if (/\.(md|markdown|mdown)$/i.test(path)) return "markdown";
+  if (/\.(csv|tsv)$/i.test(path)) return "csv";
   return /\.svg$/i.test(path) ? "svg" : null;
+}
+
+/** For the spreadsheet viewer, which takes UTF-8 for granted only after a byte-order mark. */
+export function utf8WithMark(text: string): ArrayBuffer {
+  return new TextEncoder().encode(text.startsWith("\uFEFF") ? text : `\uFEFF${text}`).buffer as ArrayBuffer;
 }
 
 /** Whether a tab shows its preview: per group, so source and preview can sit side by side. */

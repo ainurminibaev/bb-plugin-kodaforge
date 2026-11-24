@@ -10,6 +10,7 @@ them from the `vX.Y.Z` tags.
   and PowerPoint (.pptx) open in an editor tab instead of a log line. The tab splits, pins,
   reopens, follows renames and reloads when the file changes on disk. Documents render in a
   sandboxed frame with no network and no access to BB; their viewers load on first use.
+- **CSV and TSV previews.** Tables open rendered, with their source one click away.
 - **Markdown and SVG previews.** These files open rendered, with a Source / Preview button in
   the tab strip and a palette command. Source and preview can sit side by side in two groups,
   and edits show in the preview as you type. Going to a line, a search hit or a new file
